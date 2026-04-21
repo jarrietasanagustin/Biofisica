@@ -30,6 +30,7 @@ ybasis = d3.ChebyshevT(coord['y'],     size=Ny, bounds=(0, Ly), dealias=dealias)
 u = dist.ScalarField( name='u', bases=(xbasis,ybasis)) #x component of the velcoity field
 v = dist.ScalarField( name='v', bases=(xbasis,ybasis)) #y component of the velcoity field
 p = dist.ScalarField( name='p', bases=(xbasis,ybasis)) #pressure field
+tau_p = dist.Field(name='tau_p')
 #Q=dist.TensorField(coords,name='Q',bases=(xbasis,ybasis),components=2)# we comment this it will be solved later
 
 #Rembmer Q is symmetric and traceless we define first as scalar fields
@@ -92,16 +93,16 @@ lap = lambda A: dx(dx(A)) + dy(dy(A))
 # active force
 fx = dx(Qxx) + dy(Qxy)
 fy = dx(Qxy) - dy(Qxx)
-problem = d3.IVP([u,v,p,Qxx,Qxy], namespace=locals())
+problem = d3.IVP([u,v,p,Qxx,Qxy,tau_p], namespace=locals())
 #equation for the components of the nematic tensor field
 problem.add_equation("dt(Qxx)=-u*dx(Qxx)-v*dy(Qxx)+S11+1/Pe*(dx(dx(Qxx))+dy(dy(Qxx)))")
 problem.add_equation("dt(Qxy)=-u*dx(Qxy)-v*dy(Qxy)+S12+ 1/Pe*(dx(dx(Qxy))+dy(dy(Qxy)))")
 #continuity equation for the velocity field
-problem.add_equation("dx(u)+dy(v)=0")
+problem.add_equation("dx(u)+dy(v)+tau_p=0")
 #we need to add the momentum equation for the velocity field
-#problem.add_equation("integ(p) = 0")   # <-- fixes the pressure gauge
-problem.add_equation("dt(u)=1e2*(lap(u) - dx(p) +fx)")
-problem.add_equation("dt(v)=1e2*(lap(v) - dy(p) +fy)")
+problem.add_equation("integ(p) = 0")   # <-- fixes the pressure gauge
+problem.add_equation("dx(p)-(lap(u)-fx)=0")
+problem.add_equation("dy(p)-(lap(v) +fy)=0")
 
 #we define the initial conditions for the fields
 # Small random perturbation around isotropic state
