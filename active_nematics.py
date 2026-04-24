@@ -9,9 +9,9 @@ import dedalus.public as d3
 
 Lx=1.0
 Ly=1.0
-Nx=128
-Ny=128
-Pe = 1e2 #Peclet numberr
+Nx=256
+Ny=256
+Pe = 1000e0 #Peclet numberr
 lambda_n = 1.0 # tumbling parameter
 #We define the coordinates here
 #We use complex fourier for the basis since 
@@ -78,42 +78,42 @@ C21=lambda_n*Exy-Omegayx
 C22=lambda_n*Eyy-Omegayy
 #D=Q:nabla u
 D=Qxx*(ux-vy)+Qxy*(uy+vx)
-curl_f = dx(dx(Qxy)) - dx(dy(Qxx)) - dy(dx(Qxx)) - dy(dy(Qxy))
+curl_f = dx(dx(Qxy)) - 2*dx(dy(Qxx))  - dy(dy(Qxy))
 ####################################################################
 #We now write explicit expression for S11 and S12
 ####################################################################
 
 S11=(A11*B11+A12*B21)+(B11*C11+B12*C21)-2*lambda_n*B11*D
 S12=A11*B12+A12*B22+(B11*C21+B12*C22)-2*lambda_n*B12*D
-trace = Qxx + (-Qxx) #to check that the trace is zero
 
 # operators
 lap = lambda A: dx(dx(A)) + dy(dy(A))
 
 # active force
-fx = dx(Qxx) + dy(Qxy)
-fy = dx(Qxy) - dy(Qxx)
+xi=5.0 #activity parameter
+fx = xi * (dx(Qxx) + dy(Qxy))
+fy = xi * (dx(Qxy) - dy(Qxx))
 problem = d3.IVP([psi,Qxx,Qxy,tau_psi], namespace=locals())
 #equation for the components of the nematic tensor field
-problem.add_equation("dt(Qxx)=-u*dx(Qxx)-v*dy(Qxx)+S11+1/Pe*(dx(dx(Qxx))+dy(dy(Qxx)))")
-problem.add_equation("dt(Qxy)=-u*dx(Qxy)-v*dy(Qxy)+S12+ 1/Pe*(dx(dx(Qxy))+dy(dy(Qxy)))")
+problem.add_equation("dt(Qxx) = -u*dx(Qxx) - v*dy(Qxx) + S11 + (1/Pe)*lap(Qxx)")
+problem.add_equation("dt(Qxy) = -u*dx(Qxy) - v*dy(Qxy) + S12 + (1/Pe)*lap(Qxy)")
 #continuity equation for the velocity field
-problem.add_equation("lap(lap(psi)) - curl_f +tau_psi= 0")
+problem.add_equation("lap(lap(psi)) - xi*curl_f +tau_psi= 0")
 problem.add_equation("integ(psi) = 0")
 #we define the initial conditions for the fields
 # Small random perturbation around isotropic state
 
 # --- Initial conditions ---
-Qxx['g'] = 0.001 * np.random.randn(Nx, Ny)
-Qxy['g'] = 0.001 * np.random.randn(Nx, Ny)
+Qxx['g'] = 1e-3* np.random.randn(Nx, Ny)
+Qxy['g'] = 1e-3 * np.random.randn(Nx, Ny)
 psi['g'] = 0.0
 # --- Solver ---
-solver = problem.build_solver(d3.RK443)
-solver.stop_sim_time = 20
-timestep = 0.01
+solver = problem.build_solver(d3.SBDF2)
+solver.stop_sim_time = 1.0
+timestep = 1e-4
 
 # --- File handler (MUST be before the time loop) ---
-snapshots = solver.evaluator.add_file_handler('snapshots', iter=100)
+snapshots = solver.evaluator.add_file_handler('snapshots', iter=20,max_writes=10000)
 snapshots.add_task(Qxx, name='Qxx')
 snapshots.add_task(Qxy, name='Qxy')
 snapshots.add_task( dy(psi), name='u')
@@ -123,5 +123,13 @@ snapshots.add_task(psi,      name='psi')
 # --- Time loop ---
 while solver.proceed:
     solver.step(timestep)
+    if solver.iteration % 20 == 0:
+        Qxx_max = np.max(np.abs(Qxx['g'].real))
+        Qxy_max = np.max(np.abs(Qxy['g'].real))
+        psi_max = np.max(np.abs(psi['g'].real))
+        print(f"t={solver.sim_time:.5f}  Qxx={Qxx_max:.4e}  Qxy={Qxy_max:.4e}  psi={psi_max:.4e}")
+        if np.isnan(Qxx_max) or np.isnan(psi_max):
+            print("NaN detected — stopping")
+            break
     if solver.iteration % 100 == 0:
             print(f"t = {solver.sim_time:.3f}")
