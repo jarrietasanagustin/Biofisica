@@ -78,21 +78,21 @@ C21=lambda_n*Exy-Omegayx
 C22=lambda_n*Eyy-Omegayy
 #D=Q:nabla u
 D=Qxx*(ux-vy)+Qxy*(uy+vx)
-curl_f = dx(dx(Qxy)) - 2*dx(dy(Qxx))  - dy(dy(Qxy))
+curl_f = -(dx(dx(Qxy)) - 2*dx(dy(Qxx))  - dy(dy(Qxy)))
 ####################################################################
 #We now write explicit expression for S11 and S12
 ####################################################################
 
 S11=(A11*B11+A12*B21)+(B11*C11+B12*C21)-2*lambda_n*B11*D
-S12=A11*B12+A12*B22+(B11*C21+B12*C22)-2*lambda_n*B12*D
-
+#S12=A11*B12+A12*B22+(B11*C21+B12*C22)-2*lambda_n*B12*D bug found by Claude
+S12 = A11*B12 + A12*B22 + (B11*C12 + B12*C22) - 2*lambda_n*B12*D
 # operators
 lap = lambda A: dx(dx(A)) + dy(dy(A))
 
 # active force
-xi=5.0 #activity parameter
-fx = xi * (dx(Qxx) + dy(Qxy))
-fy = xi * (dx(Qxy) - dy(Qxx))
+xi=10.0 #act:wivity parameter
+fx = -xi * (dx(Qxx) + dy(Qxy))
+fy = -xi * (dx(Qxy) - dy(Qxx))
 problem = d3.IVP([psi,Qxx,Qxy,tau_psi], namespace=locals())
 #equation for the components of the nematic tensor field
 problem.add_equation("dt(Qxx) = -u*dx(Qxx) - v*dy(Qxx) + S11 + (1/Pe)*lap(Qxx)")
@@ -109,8 +109,8 @@ Qxy['g'] = 1e-3 * np.random.randn(Nx, Ny)
 psi['g'] = 0.0
 # --- Solver ---
 solver = problem.build_solver(d3.SBDF2)
-solver.stop_sim_time = 1.0
-timestep = 1e-4
+solver.stop_sim_time = 5.0
+timestep = 5e-4
 
 # --- File handler (MUST be before the time loop) ---
 snapshots = solver.evaluator.add_file_handler('snapshots', iter=20,max_writes=10000)

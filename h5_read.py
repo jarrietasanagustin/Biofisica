@@ -38,7 +38,12 @@ with h5py.File('snapshots/snapshots_s1.h5', 'r') as f:
     theta = 0.5 * np.arctan2(Qxy[-1].real, Qxx[-1].real)
     nx = np.cos(theta)
     ny = np.sin(theta)
+    # Unwrap to remove branch cut jumps
+    theta_unwrap = np.unwrap(np.unwrap(theta, axis=0), axis=1)
 
+    dtheta_dx = np.gradient(theta_unwrap, x, axis=0)
+    dtheta_dy = np.gradient(theta_unwrap, y, axis=1)
+    grad_theta = np.sqrt(dtheta_dx**2 + dtheta_dy**2)
 # --- Subsample for quiver (every n points) ---
     n = 8   # plot every 8 grid points
     xs = X[::n, ::n]
@@ -50,8 +55,8 @@ with h5py.File('snapshots/snapshots_s1.h5', 'r') as f:
     #plt.colorbar(label='Scalar Order Parameter S')
  #   plt.title('Scalar Order Parameter S at t={:.2f}'.format(t[-1]))
     fig, ax = plt.subplots(figsize=(6, 6))
-    im = ax.contourf(X, Y, S[-1], cmap='inferno', levels=100)
-    plt.colorbar(im, ax=ax, label='S')
+    im = ax.contourf(X, Y, S[-1,:,:] , cmap='jet', levels=100)
+    plt.colorbar(im, ax=ax, label='Gradient of Director Field')
     # Overlay: director field
 # headwidth=0 and headlength=0 makes symmetric arrows (no arrowhead)
 # since director has no preferred direction (n = -n)
@@ -64,5 +69,5 @@ with h5py.File('snapshots/snapshots_s1.h5', 'r') as f:
           pivot='middle')
     ax.set_xlabel('x')
     ax.set_ylabel('y')
-    plt.savefig('scalar_order_parameter.png', dpi=300)
+    plt.savefig('defects.png', dpi=300)
     plt.show()  
